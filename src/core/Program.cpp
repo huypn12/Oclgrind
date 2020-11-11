@@ -10,6 +10,7 @@
 #include "common.h"
 
 #include <fstream>
+#include <llvm/IR/DerivedTypes.h>
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 #include <windows.h>
@@ -805,7 +806,7 @@ list<string> Program::getKernelNames() const
   {
     if (F->getCallingConv() == llvm::CallingConv::SPIR_KERNEL)
     {
-      names.push_back(F->getName());
+      names.push_back(F->getName().str());
     }
   }
   return names;
@@ -963,7 +964,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
 #if LLVM_VERSION < 100
       getTypeAlignment(value->getType()));
 #else
-      llvm::MaybeAlign(getTypeAlignment(value->getType())));
+      llvm::Align(getTypeAlignment(value->getType())));
 #endif
     scalarStore->setDebugLoc(store->getDebugLoc());
     scalarStore->insertAfter(scalarPtr);
@@ -979,7 +980,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
 #if LLVM_VERSION < 100
         store->isVolatile(), store->getAlignment());
 #else
-        store->isVolatile(), llvm::MaybeAlign(store->getAlignment()));
+        store->isVolatile(), llvm::Align(store->getAlignment()));
 #endif
       _store->setDebugLoc(store->getDebugLoc());
       _store->insertAfter(store);
@@ -997,8 +998,8 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
   {
     llvm::Value *v1      = shuffle->getOperand(0);
     llvm::Value *v2      = shuffle->getOperand(1);
-    llvm::Constant *mask = shuffle->getMask();
-    unsigned maskSize    = mask->getType()->getVectorNumElements();
+    llvm::Constant *mask = shuffle->getShuffleMaskForBitcode();
+    unsigned maskSize    = llvm::cast<llvm::VectorType>(mask->getType())->getNumElements();
 
     // Check if shuffle sources came from a load with same address as the store
     llvm::LoadInst *load;
@@ -1022,7 +1023,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
 
       // Check if source is the store destination
       bool sourceIsDest =
-        ((unsigned)idx < v1->getType()->getVectorNumElements() ?
+        ((unsigned)idx < llvm::cast<llvm::VectorType>(v1->getType())->getNumElements() ?
           v1SourceIsDest : v2SourceIsDest);
 
       // If destination is used in non-identity position, leave shuffle as is
@@ -1095,7 +1096,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
 
       // Get source vector and index
       unsigned idx   = shuffle->getMaskValue(index);
-      unsigned v1num = v1->getType()->getVectorNumElements();
+      unsigned v1num = llvm::cast<llvm::VectorType>(v1->getType())->getNumElements();
       llvm::Value *src = v1;
       if (idx >= v1num)
       {
@@ -1114,7 +1115,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
 #if LLVM_VERSION < 100
           getTypeAlignment(src->getType()));
 #else
-          llvm::MaybeAlign(getTypeAlignment(src->getType())));
+          llvm::Align(getTypeAlignment(src->getType())));
 #endif
         scalarStore->setDebugLoc(store->getDebugLoc());
         scalarStore->insertAfter(scalarPtr);
@@ -1126,7 +1127,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
         {
           llvm::Value *v1 = shfl->getOperand(0);
           llvm::Value *v2 = shfl->getOperand(1);
-          unsigned v1num  = v1->getType()->getVectorNumElements();
+          unsigned v1num  = llvm::cast<llvm::VectorType>(v1->getType())->getNumElements();
 
           // Get source vector and index
           idx = shfl->getMaskValue(idx);
@@ -1148,7 +1149,7 @@ void Program::scalarizeAggregateStore(llvm::StoreInst *store)
 #if LLVM_VERSION < 100
           getTypeAlignment(extract->getType()));
 #else
-          llvm::MaybeAlign(getTypeAlignment(extract->getType())));
+          llvm::Align(getTypeAlignment(extract->getType())));
 #endif
         scalarStore->setDebugLoc(store->getDebugLoc());
         scalarStore->insertAfter(extract);
@@ -1173,8 +1174,8 @@ void Program::stripDebugIntrinsics()
       if (I->getOpcode() == llvm::Instruction::Call)
       {
         llvm::CallInst *call = (llvm::CallInst*)&*I;
-        llvm::Function *function =
-          (llvm::Function*)call->getCalledValue()->stripPointerCasts();
+        llvm::Function *function = 
+          (llvm::Function*) call->getCalledOperand()->stripPointerCasts();
         if (function->getName().startswith("llvm.dbg"))
         {
           intrinsics.insert(&*I);

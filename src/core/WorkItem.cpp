@@ -9,6 +9,7 @@
 #include "config.h"
 #include "common.h"
 
+#include <llvm/IR/DerivedTypes.h>
 #include <math.h>
 
 #include "llvm/IR/DebugInfo.h"
@@ -520,7 +521,7 @@ void WorkItem::printExpression(string expr) const
   }
 
   // Check global variables
-  string globalName = m_position->currBlock->getParent()->getName();
+  string globalName = m_position->currBlock->getParent()->getName().str();
   globalName += ".";
   globalName += basename;
   const llvm::Module *module =
@@ -870,7 +871,7 @@ INSTRUCTION(call)
   if (!callInst->getCalledFunction())
   {
     // Resolve indirect function pointer
-    const llvm::Value *func = callInst->getCalledValue();
+    const llvm::Value *func = callInst->getCalledOperand();
     const llvm::Value *funcPtr = ((const llvm::User*)func)->getOperand(0);
     function = (const llvm::Function*)funcPtr;
   }
@@ -1436,12 +1437,12 @@ INSTRUCTION(shuffle)
 
   const llvm::Value *v1 = shuffle->getOperand(0);
   const llvm::Value *v2 = shuffle->getOperand(1);
-  TypedValue mask = getOperand(shuffle->getMask());
+  TypedValue mask = getOperand(shuffle->getShuffleMaskForBitcode());
 
-  unsigned num = v1->getType()->getVectorNumElements();
+  unsigned num = llvm::cast<llvm::VectorType>(v1->getType())->getNumElements();
   for (unsigned i = 0; i < result.num; i++)
   {
-    if (shuffle->getMask()->getAggregateElement(i)->getValueID()
+    if (shuffle->getShuffleMaskForBitcode()->getAggregateElement(i)->getValueID()
           == llvm::Value::UndefValueVal)
     {
       // Don't care / undef
@@ -1637,7 +1638,7 @@ InterpreterCache::InterpreterCache(llvm::Function *kernel)
       {
         const llvm::CallInst *call = ((const llvm::CallInst*)&*I);
         llvm::Function *callee =
-          (llvm::Function*)call->getCalledValue()->stripPointerCasts();
+          (llvm::Function*)call->getCalledOperand()->stripPointerCasts();
         if (callee->isDeclaration())
         {
           // Resolve builtin function calls

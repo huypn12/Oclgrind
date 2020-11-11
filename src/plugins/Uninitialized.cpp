@@ -22,6 +22,7 @@
 #include "llvm/IR/Type.h"
 
 #include "Uninitialized.h"
+#include <llvm/IR/DerivedTypes.h>
 #include <mutex>
 
 using namespace oclgrind;
@@ -546,7 +547,7 @@ bool Uninitialized::handleBuiltinFunction(const WorkItem *workItem, string name,
 
             if(CI->getArgOperand(0)->getType()->isVectorTy())
             {
-                m = CI->getArgOperand(0)->getType()->getVectorNumElements();
+                m = llvm::cast<llvm::VectorType>(CI->getArgOperand(0)->getType())->getNumElements();
             }
 
             uint64_t src = 0;
@@ -581,7 +582,7 @@ bool Uninitialized::handleBuiltinFunction(const WorkItem *workItem, string name,
         unsigned num = 1;
         if(argOp->getType()->isVectorTy())
         {
-            num = argOp->getType()->getVectorNumElements();
+            num = llvm::cast<llvm::VectorType>(argOp->getType())->getNumElements();
         }
 
         for(unsigned i = 0; i < num; ++i)
@@ -1112,7 +1113,7 @@ void Uninitialized::instructionExecuted(const WorkItem *workItem,
             if (!function)
             {
                 // Resolve indirect function pointer
-                const llvm::Value *func = callInst->getCalledValue();
+                const llvm::Value *func = callInst->getCalledOperand();
                 const llvm::Value *funcPtr = ((const llvm::User*)func)->getOperand(0);
                 function = (const llvm::Function*)funcPtr;
             }
@@ -1596,15 +1597,15 @@ void Uninitialized::instructionExecuted(const WorkItem *workItem,
             const llvm::ShuffleVectorInst *shuffleInst = (const llvm::ShuffleVectorInst*)instruction;
             const llvm::Value *v1 = shuffleInst->getOperand(0);
             const llvm::Value *v2 = shuffleInst->getOperand(1);
-            TypedValue mask = workItem->getOperand(shuffleInst->getMask());
-            TypedValue maskShadow = shadowContext.getValue(workItem, shuffleInst->getMask());
+            TypedValue mask = workItem->getOperand(shuffleInst->getShuffleMaskForBitcode());
+            TypedValue maskShadow = shadowContext.getValue(workItem, shuffleInst->getShuffleMaskForBitcode());
             TypedValue newShadow = ShadowContext::getCleanValue(result);
             TypedValue pv = ShadowContext::getPoisonedValue(newShadow.size);
 
-            unsigned num = v1->getType()->getVectorNumElements();
+            unsigned num = llvm::cast<llvm::VectorType>(v1->getType())->getNumElements();
             for(unsigned i = 0; i < newShadow.num; i++)
             {
-                if(shuffleInst->getMask()->getAggregateElement(i)->getValueID() == llvm::Value::UndefValueVal || !ShadowContext::isCleanValue(maskShadow, i))
+                if(shuffleInst->getShuffleMaskForBitcode()->getAggregateElement(i)->getValueID() == llvm::Value::UndefValueVal || !ShadowContext::isCleanValue(maskShadow, i))
                 {
                     // Undef value are poisoned
                     memcpy(newShadow.data + i*newShadow.size, pv.data, newShadow.size);

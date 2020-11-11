@@ -153,7 +153,7 @@ void MemCheck::checkArrayAccess(const WorkItem *workItem,
     }
     else if (ptrType->isVectorTy())
     {
-      ptrType = ptrType->getVectorElementType();
+      ptrType = llvm::cast<llvm::VectorType>(ptrType)->getElementType();
     }
     else if (ptrType->isStructTy())
     {
