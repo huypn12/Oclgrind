@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <float.h>
 #include <fenv.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/Support/Casting.h>
 #include <math.h>
 #include <mutex>
 
@@ -550,7 +552,7 @@ namespace oclgrind
       unsigned num = 1;
       if (ARG(0)->getType()->isVectorTy())
       {
-        num = ARG(0)->getType()->getVectorNumElements();
+        num = llvm::cast<llvm::VectorType>(ARG(0)->getType())->getNumElements();
       }
 
       double r = 0.f;
@@ -601,7 +603,7 @@ namespace oclgrind
       unsigned num = 1;
       if (ARG(0)->getType()->isVectorTy())
       {
-        num = ARG(0)->getType()->getVectorNumElements();
+        num = llvm::cast<llvm::VectorType>(ARG(0)->getType())->getNumElements();
       }
 
       double values[4];
@@ -617,7 +619,7 @@ namespace oclgrind
       unsigned num = 1;
       if (ARG(0)->getType()->isVectorTy())
       {
-        num = ARG(0)->getType()->getVectorNumElements();
+        num = llvm::cast<llvm::VectorType>(ARG(0)->getType())->getNumElements();
       }
 
       double values[4];
@@ -1227,7 +1229,7 @@ namespace oclgrind
       if (ARG(coordIndex)->getType()->isVectorTy())
       {
         t = getCoordinate(ARG(coordIndex), 1, coordType, workItem);
-        if (ARG(coordIndex)->getType()->getVectorNumElements() > 2)
+        if (llvm::cast<llvm::VectorType>(ARG(coordIndex)->getType())->getNumElements() > 2)
         {
           r = getCoordinate(ARG(coordIndex), 2, coordType, workItem);
         }
@@ -1345,7 +1347,7 @@ namespace oclgrind
       if (ARG(coordIndex)->getType()->isVectorTy())
       {
         t = getCoordinate(ARG(coordIndex), 1, coordType, workItem);
-        if (ARG(coordIndex)->getType()->getVectorNumElements() > 2)
+        if (llvm::cast<llvm::VectorType>(ARG(coordIndex)->getType())->getNumElements() > 2)
         {
           r = getCoordinate(ARG(coordIndex), 2, coordType, workItem);
         }
@@ -1418,7 +1420,7 @@ namespace oclgrind
       if (ARG(coordIndex)->getType()->isVectorTy())
       {
         t = getCoordinate(ARG(coordIndex), 1, coordType, workItem);
-        if (ARG(coordIndex)->getType()->getVectorNumElements() > 2)
+        if (llvm::cast<llvm::VectorType>(ARG(coordIndex)->getType())->getNumElements() > 2)
         {
           r = getCoordinate(ARG(coordIndex), 2, coordType, workItem);
         }
@@ -1480,7 +1482,7 @@ namespace oclgrind
       if (ARG(1)->getType()->isVectorTy())
       {
         y = SARGV(1, 1);
-        if (ARG(1)->getType()->getVectorNumElements() > 2)
+        if (llvm::cast<llvm::VectorType>(ARG(1)->getType())->getNumElements() > 2)
         {
           z = SARGV(1, 2);
         }
@@ -1582,7 +1584,7 @@ namespace oclgrind
       if (ARG(1)->getType()->isVectorTy())
       {
         y = SARGV(1, 1);
-        if (ARG(1)->getType()->getVectorNumElements() > 2)
+        if (llvm::cast<llvm::VectorType>(ARG(1)->getType())->getNumElements() > 2)
         {
           z = SARGV(1, 2);
         }
@@ -1672,7 +1674,7 @@ namespace oclgrind
       if (ARG(1)->getType()->isVectorTy())
       {
         y = SARGV(1, 1);
-        if (ARG(1)->getType()->getVectorNumElements() > 2)
+        if (llvm::cast<llvm::VectorType>(ARG(1)->getType())->getNumElements() > 2)
         {
           z = SARGV(1, 2);
         }
@@ -2607,7 +2609,7 @@ namespace oclgrind
         uint64_t m = 1;
         if (ARG(0)->getType()->isVectorTy())
         {
-          m = ARG(0)->getType()->getVectorNumElements();
+          m = llvm::cast<llvm::VectorType>(ARG(0)->getType())->getNumElements();
         }
 
         uint64_t src = 0;
@@ -2646,7 +2648,7 @@ namespace oclgrind
       unsigned num = 1;
       if (ARG(0)->getType()->isVectorTy())
       {
-        num = ARG(0)->getType()->getVectorNumElements();
+        num = llvm::cast<llvm::VectorType>(ARG(0)->getType())->getNumElements();
       }
 
       for (unsigned i = 0; i < num; i++)
@@ -2665,7 +2667,7 @@ namespace oclgrind
       unsigned num = 1;
       if (ARG(0)->getType()->isVectorTy())
       {
-        num = ARG(0)->getType()->getVectorNumElements();
+        num = llvm::cast<llvm::VectorType>(ARG(0)->getType())->getNumElements();
       }
 
       for (unsigned i = 0; i < num; i++)
@@ -3421,7 +3423,7 @@ namespace oclgrind
       const llvm::Value *addr = dbgInst->getAddress();
 
       const llvm::DILocalVariable *var = dbgInst->getVariable();
-      workItem->m_variables[var->getName()] = {addr, var};
+      workItem->m_variables[var->getName().str()] = std::make_pair(addr, var);
     }
 
     DEFINE_BUILTIN(llvm_dbg_value)
@@ -3433,7 +3435,7 @@ namespace oclgrind
       //uint64_t offset = dbgInst->getOffset();
 
       const llvm::DILocalVariable *var = dbgInst->getVariable();
-      workItem->m_variables[var->getName()] = {value, var};
+      workItem->m_variables[var->getName().str()] = std::make_pair(value, var);
     }
 
     DEFINE_BUILTIN(llvm_lifetime_start)

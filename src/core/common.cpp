@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "common.h"
+#include <llvm/IR/DerivedTypes.h>
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 #include <time.h>
@@ -373,10 +374,23 @@ namespace oclgrind
         ((llvm::ConstantFP*)constant)->getValueAPF().convertToDouble();
       break;
     }
-    case llvm::Type::VectorTyID:
+    case llvm::Type::ScalableVectorTyID:
     {
-      unsigned num = type->getVectorNumElements();
-      const llvm::Type *elemType = type->getVectorElementType();
+      auto vectorType = llvm::cast<llvm::VectorType>(type);
+      unsigned num = vectorType->getNumElements();
+      const llvm::Type *elemType = vectorType->getElementType();
+      unsigned elemSize = getTypeSize(elemType);
+      for (unsigned i = 0; i < num; i++)
+      {
+        getConstantData(data + i*elemSize, constant->getAggregateElement(i));
+      }
+      break;
+    }
+    case llvm::Type::FixedVectorTyID:
+    {
+      auto vectorType = llvm::cast<llvm::VectorType>(type);
+      unsigned num = vectorType->getNumElements();
+      const llvm::Type *elemType = vectorType->getElementType();
       unsigned elemSize = getTypeSize(elemType);
       for (unsigned i = 0; i < num; i++)
       {
@@ -594,8 +608,9 @@ namespace oclgrind
     }
     else if (type->isVectorTy())
     {
-      unsigned num = type->getVectorNumElements();
-      unsigned sz = getTypeSize(type->getVectorElementType());
+      auto vectorType = llvm::cast<llvm::VectorType>(type);
+      unsigned num = vectorType->getNumElements();
+      unsigned sz = getTypeSize(vectorType->getElementType());
       if (num == 3) num = 4; // Hack for 3-element vectors
       return num*sz;
     }
@@ -651,8 +666,9 @@ namespace oclgrind
 
     if (type->isVectorTy())
     {
-      bits = type->getVectorElementType()->getPrimitiveSizeInBits();
-      numElements = type->getVectorNumElements();
+      auto vectorType = llvm::cast<llvm::VectorType>(type);
+      bits = vectorType->getElementType()->getPrimitiveSizeInBits();
+      numElements = vectorType->getNumElements();
     }
     else if (type->isAggregateType())
     {
@@ -692,7 +708,7 @@ namespace oclgrind
   bool isVector3(const llvm::Value *value)
   {
     return (value->getType()->isVectorTy() &&
-            value->getType()->getVectorNumElements() == 3);
+            llvm::cast<llvm::VectorType>(value->getType())->getNumElements() == 3);
   }
 
   double now()
@@ -739,11 +755,12 @@ namespace oclgrind
         break;
       }
       break;
-    case llvm::Type::VectorTyID:
+    case llvm::Type::ScalableVectorTyID: case llvm::VectorType::FixedVectorTyID:
     {
-      const llvm::Type *elemType = type->getVectorElementType();
+      auto vectorType = llvm::cast<llvm::VectorType>(type);
+      const llvm::Type *elemType = vectorType->getElementType();
       cout << "(";
-      for (unsigned i = 0; i < type->getVectorNumElements(); i++)
+      for (unsigned i = 0; i < vectorType->getNumElements(); i++)
       {
         if (i > 0)
         {
@@ -848,7 +865,7 @@ namespace oclgrind
       else if (ptrType->isVectorTy())
       {
         // Get vector element size
-        const llvm::Type *elemType = ptrType->getVectorElementType();
+        const llvm::Type *elemType = llvm::cast<llvm::VectorType>(ptrType)->getElementType();
         address += offset*getTypeSize(elemType);
         ptrType = elemType;
       }

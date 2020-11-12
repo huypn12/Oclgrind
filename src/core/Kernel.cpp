@@ -167,7 +167,7 @@ unsigned int Kernel::getArgumentAccessQualifier(unsigned int index) const
 
   // Get qualifier string
   const llvm::MDString *str = llvm::dyn_cast<llvm::MDString>(md);
-  string access = str->getString();
+  string access = str->getString().str();
   if (access == "read_only")
   {
     return CL_KERNEL_ARG_ACCESS_READ_ONLY;
@@ -355,8 +355,8 @@ string Kernel::getAttributes() const
     const llvm::Type *type = vam->getType();
     if (type->isVectorTy())
     {
-      n = type->getVectorNumElements();
-      type = type->getVectorElementType();
+      n = llvm::cast<llvm::VectorType>(type)->getNumElements();
+      type = llvm::cast<llvm::VectorType>(type)->getElementType();
     }
 
     // Generate attribute string
